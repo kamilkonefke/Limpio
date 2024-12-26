@@ -1,5 +1,5 @@
 [server]
 ip = "127.0.0.1"
 port = "8080"
-root = "/home/kamii/Projects/webserver/docs"
+root = "docs"
 index = "index.html"

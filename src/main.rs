@@ -5,7 +5,6 @@ use std::fs;
 use serde::Deserialize;
 use toml;
 
-// Maybe do virtual servers like in apache2
 // Systemctl integration
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -16,6 +15,8 @@ struct Config {
 struct Server {
     ip: String,
     port: String,
+    root: String,
+    index: String,
 }
 
 fn main() {
@@ -30,7 +31,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handle_connection(stream);
+                handle_connection(stream, &config);
             }
             Err(e) => {
                 println!("{}", e);
@@ -39,17 +40,21 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
+fn handle_connection(mut stream: TcpStream, config: &Config) {
     let buf_reader = BufReader::new(&stream);
     let upcoming_request = buf_reader.lines().next().unwrap().unwrap();
 
     if upcoming_request == "GET / HTTP/1.1" {
         let status = "HTTP/1.1 200 OK";
-        let content = fs::read_to_string("docs/index.html").unwrap();
+        let content_path = format!("{}/{}", config.server.root, config.server.index);
+        let content = fs::read_to_string(content_path).unwrap();
         let content_length = content.len();
 
         let response = format!("{status}\r\n{content_length}\r\n\r\n{content}");
         stream.write_all(response.as_bytes()).unwrap();
+    }
+    else {
+
     }
     // TODO: Handle rest of html requests and errors
 }
