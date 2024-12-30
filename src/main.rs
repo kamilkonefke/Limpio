@@ -1,4 +1,4 @@
-use std::io::{BufReader, BufRead, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::net::Ipv4Addr;
 use std::fs;
@@ -20,6 +20,7 @@ struct Server {
     port: String,
     root: String,
     index: String,
+    not_found: String,
 }
 
 fn main() {
@@ -53,19 +54,35 @@ fn handle_connection(mut stream: TcpStream, config: &Config) {
     let buf_reader = BufReader::new(&stream);
     let upcoming_request = buf_reader.lines().next().unwrap().unwrap();
 
-    if upcoming_request == "GET / HTTP/1.1" {
-        let status = "HTTP/1.1 200 OK";
-        let content_path = format!("{}/{}", config.server.root, config.server.index);
-        let content = fs::read_to_string(content_path).unwrap();
-        let content_length = content.len();
-
-        let response = format!("{status}\r\n{content_length}\r\n\r\n{content}");
-        stream.write_all(response.as_bytes()).unwrap();
+    // Get file path from request
+    let requsted_file = if let Some(path) = upcoming_request.split_whitespace().nth(1) {
+        if path == "/" {
+            config.server.index.as_str()
+        } 
+        else {
+            &path[1..]
+        }
     }
     else {
+        ""
+    };
 
-    }
-    // TODO: Handle rest of html requests and errors
+    // Make request
+    let requested_path = format!("{}/{}", config.server.root, requsted_file);
+    let (status, file) = if check_path(&requested_path) == true {
+        ("HTTP/1.0 200 OK", requested_path)
+    } 
+    else {
+        ("HTTP/1.1 404 NOT FOUND", format!("{}/{}", config.server.root, config.server.not_found))
+    };
+
+    let content = fs::read_to_string(file).unwrap();
+    let content_length = content.len();
+
+    let response = format!("{status}\r\nContent-Length: {content_length}\r\nContent-Type: text/html\r\n\r\n{content}");
+
+    stream.write_all(response.as_bytes()).unwrap(); // Send it
+    stream.flush().unwrap();
 }
 
 fn check_config(config: &Config) -> Result<(), String> {
@@ -83,10 +100,7 @@ fn check_config(config: &Config) -> Result<(), String> {
 }
 
 fn check_ip(ip: &str) -> bool {
-    if ip.parse::<Ipv4Addr>().is_ok() {
-        return true;
-    }
-    false
+    ip.parse::<Ipv4Addr>().is_ok()
 }
 
 fn check_port(port: &str) -> bool {
@@ -102,8 +116,5 @@ fn check_port(port: &str) -> bool {
 }
 
 fn check_path(path: &str) -> bool {
-    if fs::exists(path).unwrap() == false {
-        return false;
-    }
-    return true;
+    fs::exists(path).unwrap()
 }
