@@ -8,7 +8,7 @@ mod server;
 use server::*;
 
 fn main() {
-    load_config("/etc/limpio/config.toml");
+    load_config("docs/config.toml");
     
     match validate_config() {
         Ok(_) => run_server(),
