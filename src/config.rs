@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use lazy_static::lazy_static;
+use std::sync::Mutex;
 use std::net::Ipv4Addr;
 use clap::Parser;
 use std::fs;
@@ -21,73 +22,82 @@ struct Cli {
     serve: Option<String>,
 }
 
+#[derive(Clone, Debug)]
 pub struct Config {
-    pub server: ServerConfig,
-    pub app: AppConfig,
+    pub host: HostConfig,
+    pub cli: AppConfig,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ServerConfig {
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct HostConfig {
     pub ip: String,
     pub port: String,
     pub root: String,
     pub index: String,
 }
 
+#[derive(Clone, Debug)]
 pub struct AppConfig {
     pub verbose: bool,
 }
 
-impl Config {
-    pub fn load_from_file(file_path: &str) -> Self {
-        let cli = Cli::parse();
+lazy_static! {
+    static ref CONFIG: Mutex<Option<Config>> = Mutex::new(None);
+}
 
-        // Read config file
-        let config_raw = fs::read_to_string(file_path).expect("ERR");
-        let mut server_config: ServerConfig = toml::de::from_str(&config_raw).expect("ERR");
-        let app_config = AppConfig {
-            verbose: cli.verbose,
-        };
+pub fn load_config(file_path: &str) {
+    let cli = Cli::parse();
 
-        // Apply cli config if found
-        cli.ip.map(|ip| server_config.ip = ip);
-        cli.port.map(|port| server_config.port = port);
-        cli.serve.map(|path| {
-            let parts: Vec<&str> = path.split("/").collect();
-            let file = parts.last().unwrap_or(&"index.html");
-            let dir = &parts[..parts.len() - 1];
+    // Read config file
+    let config_raw = fs::read_to_string(file_path).expect("ERR");
+    let mut host_config: HostConfig = toml::from_str(&config_raw).expect("ERR");
+    let cli_config = AppConfig {
+        verbose: cli.verbose,
+    };
 
-            server_config.root = dir.join("/");
-            server_config.index = file.to_string();
-        });
+    // Apply cli config if found
+    cli.ip.map(|ip| host_config.ip = ip);
+    cli.port.map(|port| host_config.port = port);
+    cli.serve.map(|path| {
+        let parts: Vec<&str> = path.split("/").collect();
+        let file = parts.last().unwrap_or(&"index.html");
+        let dir = &parts[..parts.len() - 1];
 
-        Config { 
-            server: server_config,
-            app: app_config,
-        }
+        host_config.root = dir.join("/");
+        host_config.index = file.to_string();
+    });
+
+    let mut config_lock = CONFIG.lock().unwrap();
+    *config_lock = Some(Config {
+        host: host_config,
+        cli: cli_config,
+    });
+}
+
+pub fn get_config() -> Config {
+    let config_lock = CONFIG.lock().unwrap();
+    return config_lock.clone().unwrap();
+}
+
+pub fn validate_config() -> Result<(), String>{
+    let config = get_config();
+    let root = config.host.root;
+
+    if check_ip(&config.host.ip) == false {
+        return Err("Check `ip` value.".to_string());
     }
 
-    pub fn validate(self) -> Result<Self, String> {
-        let root = &self.server.root;
-
-        let ip = &self.server.ip;
-        if check_ip(ip) == false {
-            return Err("Check `ip` value.".to_string());
-        }
-
-        let port = &self.server.port;
-        if check_port(port) == false {
-            return Err("Check `port` value.".to_string());
-        }
-
-        let index = &self.server.index;
-        let index_path = format!("{}/{}", root, index);
-        if check_path(&index_path) == false {
-            return Err(format!("Check `root` and `index` values. Path {} not found", index_path));
-        }
-
-        Ok(self)
+    if check_port(&config.host.port) == false {
+        return Err("Check `port` value.".to_string());
     }
+
+    let index = config.host.index;
+    let index_path = format!("{}/{}", root, index);
+    if check_path(&index_path) == false {
+        return Err(format!("Check `root` and `index` values. Path {} not found", index_path));
+    }
+
+    Ok(())
 }
 
 pub fn check_ip(ip: &str) -> bool {

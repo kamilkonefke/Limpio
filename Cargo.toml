@@ -1,9 +1,11 @@
 [package]
-name = "webserver"
+name = "limpio"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 colored = "2.2.0"
 serde = { version = "1.0.216", features = ["derive"] }
+clap = { version = "4.5.21", features = ["derive"] }
 toml = "0.8.19"
+lazy_static = "1.5.0"

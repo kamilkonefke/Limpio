@@ -1,6 +1,0 @@
-[server]
-ip = "127.0.0.1"
-port = "8080"
-root = "docs"
-index = "index.html"
-not_found = "404.html"
