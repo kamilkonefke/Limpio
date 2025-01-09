@@ -16,7 +16,7 @@ macro_rules! VERBOSE {
     }
 }
 
-pub fn run_server() {
+pub async fn run_server() {
     let cfg = get_config();
     println!("Listening on {}:{}", cfg.host.ip, cfg.host.port);
     let socket: String = format!("{}:{}", cfg.host.ip, cfg.host.port);
@@ -24,13 +24,13 @@ pub fn run_server() {
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => handle_connection(stream),
+            Ok(stream) => handle_connection(stream).await,
             Err(e) => println!("{}", e),
         }
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
+async fn handle_connection(mut stream: TcpStream) {
     let cfg = get_config();
 
     VERBOSE!(format!("CONNECTED: {:?}", stream.peer_addr().unwrap()));
