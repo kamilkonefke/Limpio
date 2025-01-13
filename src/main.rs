@@ -9,10 +9,11 @@ use server::*;
 
 #[tokio::main]
 async fn main() {
-    load_config("docs/config.toml");
+    let config_path = "docs/config.toml".to_string();
+    load_config(&config_path);
     
     match validate_config() {
         Ok(_) => run_server().await,
-        Err(e) => eprintln!("{}", format!("{}", e).truecolor(255, 0, 0)),
+        Err(e) => eprintln!("{}", format!("{} {}", e, config_path).truecolor(255, 0, 0)),
     }
 }

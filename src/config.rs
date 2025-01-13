@@ -50,7 +50,7 @@ pub fn load_config(file_path: &str) {
 
     // Read config file
     let config_raw = fs::read_to_string(file_path).unwrap();
-    let mut host_config: HostConfig = toml::from_str(&config_raw).expect("ERR");
+    let mut host_config: HostConfig = toml::from_str(&config_raw).expect("Check your config for typos!");
     let cli_config = AppConfig {
         verbose: cli.verbose,
     };

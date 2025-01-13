@@ -56,12 +56,12 @@ async fn handle_connection(mut stream: TcpStream) {
         }
     }
     else {
-        "Unknown error"
+        ""
     };
 
     VERBOSE!(format!("REQUESTED FILE: {}", requsted_file));
 
-    // Make request
+    // Make path
     let requested_path = format!("{}/{}", cfg.host.root, requsted_file);
 
     // Check if file is avilable
