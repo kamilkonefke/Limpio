@@ -14,6 +14,6 @@ async fn main() {
     
     match validate_config() {
         Ok(_) => run_server().await,
-        Err(e) => eprintln!("{}", format!("{} {}", e, config_path).truecolor(255, 0, 0)),
+        Err(e) => eprintln!("{}", format!("{} {}", e, config_path).red()),
     }
 }
