@@ -20,7 +20,8 @@ pub async fn run_server() {
     let cfg = get_config();
     println!("Listening on {}:{}", cfg.host.ip, cfg.host.port);
     let socket: String = format!("{}:{}", cfg.host.ip, cfg.host.port);
-    let listener = TcpListener::bind(socket).expect("ERR");
+
+    let listener = TcpListener::bind(socket).unwrap();
 
     for stream in listener.incoming() {
         match stream {
@@ -46,6 +47,8 @@ async fn handle_connection(mut stream: TcpStream) {
         },
     };
 
+    VERBOSE!(format!("REQUEST: {}", upcoming_request));
+
     // Get file path from request
     let requsted_file = if let Some(path) = upcoming_request.split_whitespace().nth(1) {
         if path == "/" {
@@ -66,20 +69,47 @@ async fn handle_connection(mut stream: TcpStream) {
 
     // Check if file is avilable
     let (status, file) = if fs::exists(&requested_path).unwrap() == true {
-        ("HTTP/1.0 200 OK", requested_path)
+        ("HTTP/1.1 200 OK", requested_path)
     } 
     else {
         ("HTTP/1.1 404 NOT FOUND", format!("{}/{}", cfg.host.root, "404.html"))
     };
 
     // Read file from filesystem
-    let content = fs::read_to_string(file).unwrap();
+    let content = fs::read(file.clone()).unwrap();
     let content_length = content.len();
+    let content_type = get_content_type(&file);
 
-    let response = format!("{status}\r\nContent-Length: {content_length}\r\nContent-Type: text/html\r\n\r\n{content}");
+    let response = format!("{status}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n");
 
-    VERBOSE!(format!("RESPONSE: {}", response));
+    // Send response and content to client
+    stream.write_all(response.as_bytes()).unwrap();
+    stream.write_all(&content).unwrap();
 
-    stream.write_all(response.as_bytes()).unwrap(); // Send it to client
+    VERBOSE!(format!("RESPONSE:\n{}", response));
+
     stream.flush().unwrap();
+}
+
+fn get_content_type(file: &str) -> String {
+    let extension = match file.split('.').last() {
+        Some(ext) => ext,
+        None => return "application/octet-stream".to_string(),
+    };
+
+    match extension.to_lowercase().as_str() {
+        "html" | "htm" => "text/html".to_string(),
+        "css" => "text/css".to_string(),
+        "js"  => "application/javascript".to_string(),
+        "json"=> "application/json".to_string(),
+        "jpeg" | "jpg" => "image/jpeg".to_string(),
+        "png" => "image/png".to_string(),
+        "gif" => "image/gif".to_string(),
+        "bmp" => "image/bmp".to_string(),
+        "svg" => "image/svg+xml".to_string(),
+        "txt" => "text/plain".to_string(),
+        "pdf" => "application/pdf".to_string(),
+        "zip" => "application/zip".to_string(),
+        _ => "application/octet-stream".to_string(), // Default
+    }
 }
